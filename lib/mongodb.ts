@@ -1,37 +1,40 @@
-import mongoose from "mongoose";
+import mongoose, { Mongoose } from "mongoose";
 
-// Fix 1: Force TypeScript to treat this as a string
 const MONGODB_URI = process.env.MONGODB_URI as string;
 
 if (!MONGODB_URI) {
   throw new Error("Please define the MONGODB_URI environment variable inside .env.local");
 }
 
-declare global {
-  var mongoose: {
-    conn: typeof mongoose | null;
-    promise: Promise<typeof mongoose> | null;
-  };
+// 1. Create a strict interface for our cache
+interface MongooseCache {
+  conn: Mongoose | null;
+  promise: Promise<Mongoose> | null;
 }
 
-let cached = global.mongoose;
+// 2. Rename the global variable to 'mongooseCache' to avoid collisions
+declare global {
+  var mongooseCache: MongooseCache;
+}
+
+let cached = global.mongooseCache;
 
 if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
+  cached = global.mongooseCache = { conn: null, promise: null };
 }
 
-async function dbConnect() {
+// 3. Explicitly state that this function returns a Mongoose instance
+async function dbConnect(): Promise<Mongoose> {
   if (cached.conn) {
     return cached.conn;
   }
   
   if (!cached.promise) {
-    // Fix 2: Explicitly resolve the mongoose instance to satisfy the TS compiler
     cached.promise = mongoose.connect(MONGODB_URI, {
       bufferCommands: false,
       dbName: "ai_startup_validator",
-    }).then((mongoose) => {
-      return mongoose;
+    }).then((mongooseInstance) => {
+      return mongooseInstance;
     });
   }
   
